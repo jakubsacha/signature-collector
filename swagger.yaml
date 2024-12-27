@@ -1,0 +1,308 @@
+openapi: 3.0.0
+info:
+  title: Document Signing System API Documentation
+  description: |
+    API for handling PDF document signing process on a tablet.
+
+    ## System Overview
+    This API enables electronic document signing on tablet devices. The system follows these main steps:
+    1. Client sends a document signing request with content and signer details
+    2. Tablet device polls for pending documents
+    3. Signer reviews and signs the document on the tablet
+    4. System processes the signature and notifies the client
+    5. Client can check signature status or remove requests
+
+    ## Authentication
+    All API endpoints require appropriate authentication headers (to be implemented).
+
+    ## Document Flow
+    See the sequence diagram in the repository's README.md for detailed flow visualization.
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+    description: Main API
+
+paths:
+  /:
+    get:
+      summary: Enter current device ID
+      responses:
+        "200":
+          description: HTML form to enter device ID
+          content:
+            text/html:
+              schema:
+                type: string
+                example: "<html><body><form>Enter Device ID: <input type='text' name='device_id'></form></body></html>"
+
+  /api/documents/signatures/request:
+    post:
+      summary: Sends a document signing request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                document_title:
+                  type: string
+                  example: "Document Title"
+                  description: Title of the document
+                document_content:
+                  type: array
+                  description: Document content and consents
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - type
+                      - content
+                    properties:
+                      id:
+                        type: string
+                        example: section1
+                        description: Unique identifier for the section
+                      type:
+                        type: string
+                        example: text
+                        description: Section type (e.g. text, consent)
+                      content:
+                        type: string
+                        example: "This is the document content."
+                        description: Section content
+                      consent_type:
+                        type: string
+                        example: marketing_email
+                        description: Type of consent (if applicable)
+                      consent_granted:
+                        type: boolean
+                        example: false
+                        description: Whether consent was granted (if applicable)
+                      consent_mandatory:
+                        type: boolean
+                        example: true
+                        description: Whether consent is mandatory
+                      consent_default:
+                        type: boolean
+                        example: false
+                        description: Whether consent is granted by default
+                signer_name:
+                  type: string
+                  example: John Smith
+                  description: Signer's full name
+                signer_email:
+                  type: string
+                  format: email
+                  example: john.smith@example.com
+                  description: Signer's email
+                device_id:
+                  type: string
+                  example: unique_device_id_123
+                  description: ID of the device where document will be displayed
+                callback_url:
+                  type: string
+                  format: uri
+                  example: https://client.example.com/callback
+                  description: |
+                    URL for signature process completion notification. When a document is signed, 
+                    our system will send a POST request to this URL with the following payload:
+
+                    ```json
+                    {
+                      "request_id": "abc123",
+                      "status": "completed",
+                      "signer_name": "John Smith",
+                      "signer_email": "john.smith@example.com",
+                      "signature_data": "base64_encoded_signature_data",
+                      "consents": [
+                        {
+                          "consent_type": "marketing_email",
+                          "granted": true,
+                          "timestamp": "2024-01-20T15:30:00Z"
+                        }
+                      ],
+                      "completed_at": "2024-01-20T15:30:00Z"
+                    }
+                    ```
+
+                    Retry Mechanism:
+                    - Up to 60 retry attempts
+                    - Exponential backoff starting at 100ms
+                    - Maximum delay between retries: 30 seconds
+                    - Total retry period: up to 30 minutes
+                    - Retries stop on first successful response (HTTP 2xx)
+
+                    Important Notes:
+                    - Request timeout: 10 seconds
+                    - Callback failures are logged but don't affect the signature process
+                    - Your endpoint should be idempotent (may receive same notification multiple times)
+                    - HTTP 2xx responses are considered successful delivery
+      responses:
+        "200":
+          description: Signature request accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                    example: unique_request_id
+                  status:
+                    type: string
+                    example: pending
+
+  /api/documents/signatures/{request_id}/status:
+    get:
+      summary: Returns signature status for specified request
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Signature request ID
+      responses:
+        "200":
+          description: Signature status details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                    example: unique_request_id
+                  status:
+                    type: string
+                    example: completed
+                  signed_document_url:
+                    type: string
+                    format: uri
+                    example: https://example.com/signed_document.pdf
+
+  /api/documents/signatures/{request_id}:
+    delete:
+      summary: Remove existing signature request
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Signature request ID to be removed
+      responses:
+        "200":
+          description: Signature request successfully removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                    example: unique_request_id
+                  status:
+                    type: string
+                    example: removed
+        "404":
+          description: Signature request not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Signature request not found"
+
+  /documents/{device_id}:
+    get:
+      summary: Returns HTML document with list of pending documents to sign
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique device ID
+      responses:
+        "200":
+          description: HTML document with list of pending documents
+          content:
+            text/html:
+              schema:
+                type: string
+                example: "<html><body><ul><li>Document 1</li><li>Document 2</li></ul></body></html>"
+
+  /documents/sign/{request_id}:
+    get:
+      summary: Render document and allow signature
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Signature request ID
+      responses:
+        "200":
+          description: HTML page to render document and allow signature
+          content:
+            text/html:
+              schema:
+                type: string
+                example: "<html><body>Document content here. <button>Sign</button></body></html>"
+
+    post:
+      summary: Send signature data and consent information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                signature_data:
+                  type: string
+                  format: base64
+                  example: "base64_encoded_signature_data"
+                  description: Signature in base64 format
+                consents:
+                  type: array
+                  description: List of consents and their status
+                  items:
+                    type: object
+                    required:
+                      - consent_type
+                      - granted
+                    properties:
+                      consent_type:
+                        type: string
+                        description: Type of consent (e.g. marketing_email, terms_of_service)
+                        example: "marketing_email"
+                      granted:
+                        type: boolean
+                        description: Whether this consent was granted
+                        example: true
+                      timestamp:
+                        type: string
+                        format: date-time
+                        description: When the consent was given/rejected
+                        example: "2024-01-20T15:30:00Z"
+      responses:
+        "200":
+          description: Signature data and consents received
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: completed
+                  consents_processed:
+                    type: boolean
+                    example: true
+                    description: Confirmation that consents were processed

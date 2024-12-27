@@ -1,0 +1,214 @@
+package templates
+
+import (
+    "github.com/jakubsacha/signature-collector/models"
+    "github.com/jakubsacha/signature-collector/i18n"
+    "time"
+    
+)
+var location, _ = time.LoadLocation("Europe/Warsaw")
+var now = time.Now().In(location)
+var selectAllRendered = false
+
+templ SignaturePage(doc models.Document, requestID string) {
+    {{ selectAllRendered := false }}
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-10">
+            <h1 class="text-2xl font-bold mb-6">{ doc.DocumentTitle }</h1>
+            <!-- Document Content -->
+            <div class="mb-8">
+                for _, section := range doc.DocumentContent {
+                    if !selectAllRendered && section.Type == "consent" {
+                        <div class="mb-4">
+                            <label class="flex gap-3">
+                                <span class="w-6 flex-none relative">
+                                    <input 
+                                        type="checkbox"
+                                        id="selectAllConsents"
+                                        class="form-checkbox w-4 h-4 text-blue-600 mt-1"
+                                    />
+                                </span>
+                                <span class="text-gray-700 whitespace-pre-wrap flex-1">
+                                    { i18n.T("SelectAll", nil) }
+                                </span>
+                            </label>
+                        </div>
+                        {{ selectAllRendered = true }}
+                    }
+                    if section.Type == "text" {
+                        <div class="mb-2 py-2 whitespace-pre-wrap">
+                            <p>{ section.Content }</p>
+                        </div>
+                    } else if section.Type == "consent" {
+                        <div class="mb-4">
+                            <label class="flex gap-3">
+                                <span class="w-6 flex-none relative">
+                                    if section.ConsentMandatory != nil && *section.ConsentMandatory {
+                                        <input 
+                                            type="hidden"
+                                            name={ "consent_" + *section.ConsentType }
+                                            value="true"
+                                        />
+                                    }
+                                    <input 
+                                        type="checkbox"
+                                        name={ "consent_" + *section.ConsentType }
+                                        if section.ConsentDefault != nil && *section.ConsentDefault {
+                                            checked
+                                        }
+                                        if section.ConsentMandatory != nil && *section.ConsentMandatory {
+                                            disabled="disabled"
+                                            checked
+                                        }
+                                        class="form-checkbox w-4 h-4 text-blue-600 mt-1"
+                                    />
+                                    if section.ConsentMandatory != nil && *section.ConsentMandatory {
+                                        <span class="absolute top-1 left-0 w-4 h-4 bg-blue-500 text-white flex items-center justify-center font-bold text-center cursor-not-allowed rounded-sm">
+                                            <span class="text-sm text-center ml-[1px]">&check;</span>
+                                        </span>
+                                    }
+                                </span>
+                                <span class="text-gray-700 whitespace-pre-wrap flex-1">
+                                if section.ConsentMandatory != nil && *section.ConsentMandatory {
+                                    <span class="text-red-500 font-bold">*</span>
+                                }
+                                { section.Content }
+                                </span>
+                            </label>
+                        </div>
+                    }
+                }
+            </div>
+
+            <!-- Signature Canvas -->
+            <div class="mb-8">
+                <h2 class="text-xl font-semibold mb-4">{ i18n.T("Signature", nil) }</h2>
+                <div class="flex gap-2 items-center mb-2">
+                    <h3 class="text-lg ">
+                        {doc.SignerName} <span class="text-gray-500">({doc.SignerEmail})</span>
+                    </h3>
+                    <span class="text-gray-500">
+                    { now.Format("02.01.2006") }
+                    </span>
+                </div>
+                <div class="border-2 border-gray-300 rounded-lg">
+                    <canvas id="signatureCanvas" class="w-full h-64 rounded cursor-crosshair"></canvas>
+                </div>
+                <div class="mt-4 flex justify-end space-x-4">
+                    <button 
+                        id="clearButton"
+                        class="bg-[#F6F0E4] text-black px-4 py-2 rounded-full hover:bg-[#F6F0E4] transition-colors"
+                    >
+                        { i18n.T("Clear", nil) }
+                    </button>
+                    <button 
+                        id="submitButton"
+                        class="bg-[#FF7355] text-white px-4 py-2 rounded-full hover:bg-[#FE8460] transition-colors"
+                        data-request-id={ requestID }
+                        data-device-id={ doc.DeviceID }
+                    >
+                        { i18n.T("Submit", nil) }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @templ.JSONScript("translations", map[string]string{
+        "pleaseSignBeforeSubmitting": i18n.T("PleaseSignBeforeSubmitting", nil),
+        "failedToSubmitSignature": i18n.T("FailedToSubmitSignature", nil),
+        "error": i18n.T("Error", nil),
+        "signatureSubmitted": i18n.T("SignatureSubmitted", nil),
+        "complete": i18n.T("Complete", nil),
+    })
+
+    <script>
+        const translations = JSON.parse(document.getElementById('translations').textContent);
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const canvas = document.getElementById('signatureCanvas');
+
+            // Select all consents
+            document.getElementById('selectAllConsents').addEventListener('change', function() {
+                document.querySelectorAll('input[type="checkbox"][name^="consent_"]').forEach(input => {
+                    input.checked = this.checked;
+                });
+            });
+
+            // Set canvas size
+            function resizeCanvas() {
+                const rect = canvas.getBoundingClientRect();
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Initialize SignaturePad
+            const signaturePad = new SignaturePad(canvas);
+
+            // Clear button
+            document.getElementById('clearButton').addEventListener('click', () => {
+                signaturePad.clear();
+            });
+
+            // Submit button
+            document.getElementById('submitButton').addEventListener('click', async () => {
+                if (signaturePad.isEmpty()) {
+                    alert(translations.pleaseSignBeforeSubmitting);
+                    return;
+                }
+
+                const requestID = document.getElementById('submitButton').dataset.requestId;
+                const deviceID = document.getElementById('submitButton').dataset.deviceId;
+                const signatureData = signaturePad.toDataURL();
+
+                // Get all consent checkboxes
+                const consentInputs = document.querySelectorAll('input[type="checkbox"][name^="consent_"]');
+                const consents = Array.from(consentInputs).map(input => ({
+                    consent_type: input.name.replace('consent_', ''),
+                    granted: input.checked,
+                    timestamp: new Date().toISOString()
+                }));
+
+                try {
+                    const response = await fetch(`/documents/sign/${requestID}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            signature_data: signatureData,
+                            consents: consents
+                        }),
+                    });
+
+                    if (response.ok) {
+                        // Show confirmation message and return button
+                        const confirmationMessage = document.createElement('div');
+                        confirmationMessage.className = 'text-center mt-8';
+                        confirmationMessage.innerHTML = `
+                            <p class="text-lg font-semibold mb-4">${translations.signatureSubmitted}</p>
+                            <button 
+                                id="returnButton"
+                                class="bg-[#FF7355] text-white px-4 py-2 rounded-full hover:bg-[#FE8460] transition-colors"
+                            >
+                                ${translations.complete}
+                            </button>
+                        `;
+                        document.querySelector('.container div').replaceChildren(confirmationMessage);
+
+                        // Add event listener to the return button
+                        document.getElementById('returnButton').addEventListener('click', () => {
+                            window.location.href = '/documents/' + deviceID;
+                        });
+                    } else {
+                        console.error(translations.failedToSubmitSignature);
+                    }
+                } catch (error) {
+                    console.error(translations.error, error);
+                }
+            });
+        });
+    </script>
+} 

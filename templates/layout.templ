@@ -1,0 +1,20 @@
+package templates
+
+import "github.com/jakubsacha/signature-collector/i18n"
+
+templ Layout(content templ.Component) {
+	<!DOCTYPE html>
+	<html lang={i18n.GetLanguage()}>
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{i18n.T("AppTitle", nil)}</title>
+			<script src="https://unpkg.com/htmx.org@1.9.9"></script>
+			<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+			<script src="https://cdn.tailwindcss.com"></script>
+		</head>
+		<body class="bg-[#F6F0E4]">
+			@content
+		</body>
+	</html>
+}

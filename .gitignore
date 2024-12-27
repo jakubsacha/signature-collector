@@ -1,0 +1,46 @@
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+
+# Environment files
+.env
+*.env
+
+# Database files
+*.db
+local.db
+mysql-datadir/
+
+# IDE specific
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Binary files
+bin/
+dist/
+signature-collector
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+build-errors.log
+
+# Local development specific files
+local_settings.json
+local_config.yaml
+
+# Go workspace file
+go.work 
