@@ -13,29 +13,14 @@ import (
 )
 
 func main() {
-	// Write directly to a file as the very first operation
-	f, _ := os.OpenFile("debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	f.WriteString("Program started\n")
-	f.Close()
-
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("Recovered from panic: %v\n", r)
-			os.Exit(1)
-		}
-	}()
-
 	// Set up logging
-	log.SetFlags(log.Ldate | log.Ltime)
-	log.SetOutput(os.Stderr)
-
 	log.Println("Starting application...")
 
 	// Load .env file
 	log.Println("Loading .env file...")
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Error loading .env file")
+		log.Println("Didn't load .env file")
 	}
 	log.Println(".env file loaded successfully")
 

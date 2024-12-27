@@ -1,8 +1,8 @@
 DROP TABLE IF EXISTS documents;
 
 CREATE TABLE documents (
-    id STRING PRIMARY KEY,
-    document_content TEXT NOT NULL,
+    id VARCHAR(255) PRIMARY KEY,
+    document_content LONGTEXT NOT NULL,
     document_title TEXT,
     signer_name VARCHAR(100) NOT NULL,
     signer_email VARCHAR(100) NOT NULL,

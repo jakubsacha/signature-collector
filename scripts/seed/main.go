@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/google/uuid"
 	"github.com/jakubsacha/signature-collector/models"
@@ -18,10 +19,24 @@ func main() {
 		log.Printf("Warning: Error loading .env file: %v", err)
 	}
 
-	// Initialize the database
-	config := models.DBConfig{
-		Driver: "sqlite3",
-		Name:   "local.db",
+	var config models.DBConfig
+	if dbHost := os.Getenv("DB_HOST"); dbHost != "" {
+		log.Println("Using MySQL database configuration")
+		// Use MySQL if DB_HOST is set
+		config = models.DBConfig{
+			Driver:   "mysql",
+			Host:     dbHost,
+			User:     os.Getenv("DB_USER"),
+			Password: os.Getenv("DB_PASSWORD"),
+			Name:     os.Getenv("DB_NAME"),
+		}
+	} else {
+		// Default to SQLite
+		log.Println("Using SQLite database configuration")
+		config = models.DBConfig{
+			Driver: "sqlite3",
+			Name:   "local.db",
+		}
 	}
 
 	db, err := models.InitDB(config)
