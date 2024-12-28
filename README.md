@@ -97,3 +97,11 @@ MIT
 ## Credits
 
 Uses [Signature Pad](https://github.com/szimek/signature_pad) for signature capture.
+
+## Authentication
+
+The application uses two types of authentication:
+
+1. **Basic Authentication**: This is used for web routes. The username and password are checked against the environment variables `BASEAUTH_USER` and `BASEAUTH_PASS`. If these credentials are not provided or do not match, the request is unauthorized.
+
+2. **Token-Based Authentication**: This is used for API routes. The token is expected to be in the `Authorization` header in the format `Bearer <token>`. The token is validated against the `API_TOKEN` environment variable. If the token is not provided or does not match, the request is unauthorized.
