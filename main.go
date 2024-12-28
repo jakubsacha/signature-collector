@@ -24,6 +24,16 @@ func main() {
 	}
 	log.Println(".env file loaded successfully")
 
+	// check if API_USER and API_PASS are set
+	if os.Getenv("BASEAUTH_USER") == "" || os.Getenv("BASEAUTH_PASS") == "" {
+		log.Fatalf("BASEAUTH_USER and BASEAUTH_PASS must be set")
+	}
+
+	// check if API_TOKEN is set
+	if os.Getenv("API_TOKEN") == "" {
+		log.Fatalf("API_TOKEN must be set")
+	}
+
 	// Initialize i18n
 	log.Println("Initializing i18n...")
 	err = i18n.Init(os.Getenv("LANGUAGE"))
@@ -67,35 +77,34 @@ func main() {
 	log.Println("Configuring router...")
 	router := mux.NewRouter()
 
-	// API routes
-	log.Println("Registering API routes...")
-	router.HandleFunc("/api/documents/signatures/request", func(w http.ResponseWriter, r *http.Request) {
+	// API routes with token authentication
+	router.HandleFunc("/api/documents/signatures/request", tokenAuth(func(w http.ResponseWriter, r *http.Request) {
 		handlers.SignRequestHandler(w, r, store)
-	}).Methods(http.MethodPost)
+	})).Methods(http.MethodPost)
 
-	router.HandleFunc("/api/documents/signatures/{request_id}/status", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/api/documents/signatures/{request_id}/status", tokenAuth(func(w http.ResponseWriter, r *http.Request) {
 		handlers.SignatureStatusHandler(w, r, store)
-	}).Methods(http.MethodGet)
+	})).Methods(http.MethodGet)
 
-	router.HandleFunc("/api/documents/signatures/{request_id}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/api/documents/signatures/{request_id}", tokenAuth(func(w http.ResponseWriter, r *http.Request) {
 		handlers.DeleteSignatureHandler(w, r, store)
-	}).Methods(http.MethodDelete)
+	})).Methods(http.MethodDelete)
 
-	// Web routes
+	// Web routes with basic authentication
 	deviceEntryHandler := handlers.NewDeviceEntryHandler()
 	documentsHandler := handlers.NewDocumentsHandler(store)
 	signatureHandler := handlers.NewSignatureHandler(store)
 
 	// Register the documents handler routes
-	router.HandleFunc("/documents/{device_id}", documentsHandler.ListDocuments).Methods("GET")
+	router.HandleFunc("/documents/{device_id}", basicAuth(documentsHandler.ListDocuments)).Methods("GET")
 
 	// Register signature handler routes
-	router.HandleFunc("/documents/sign/{request_id}", signatureHandler.ShowSignaturePage).Methods("GET")
-	router.HandleFunc("/documents/sign/{request_id}", signatureHandler.ProcessSignature).Methods("POST")
+	router.HandleFunc("/documents/sign/{request_id}", basicAuth(signatureHandler.ShowSignaturePage)).Methods("GET")
+	router.HandleFunc("/documents/sign/{request_id}", basicAuth(signatureHandler.ProcessSignature)).Methods("POST")
 
 	// Register root handler routes
-	router.HandleFunc("/", deviceEntryHandler.ShowForm).Methods("GET")
-	router.HandleFunc("/", deviceEntryHandler.ProcessForm).Methods("POST")
+	router.HandleFunc("/", basicAuth(deviceEntryHandler.ShowForm)).Methods("GET")
+	router.HandleFunc("/", basicAuth(deviceEntryHandler.ProcessForm)).Methods("POST")
 
 	// Get port from environment variable or use default
 	port := os.Getenv("PORT")
@@ -108,4 +117,43 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
+}
+
+// basicAuth is a middleware for basic authentication
+func basicAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if !ok || !validateBasicAuth(user, pass) {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// validateBasicAuth checks the provided username and password
+func validateBasicAuth(user, pass string) bool {
+	expectedUser := os.Getenv("BASEAUTH_USER")
+	expectedPass := os.Getenv("BASEAUTH_PASS")
+	return user == expectedUser && pass == expectedPass
+}
+
+// tokenAuth is a middleware for token-based authentication
+func tokenAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("Authorization")
+
+		if !validateToken(token) {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// validateToken checks the provided token
+func validateToken(token string) bool {
+	expectedToken := os.Getenv("API_TOKEN")
+	return token == "Bearer "+expectedToken
 }
