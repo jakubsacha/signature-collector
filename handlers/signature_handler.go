@@ -122,6 +122,14 @@ func (h *SignatureHandler) ProcessSignature(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Re-fetch document to get updated status
+	doc, err = h.store.GetDocument(requestID)
+	if err != nil {
+		log.Printf("Error re-fetching document: %v", err)
+		http.Error(w, "Error fetching document", http.StatusInternalServerError)
+		return
+	}
+
 	// Send callback if configured
 	if doc.CallbackURL != "" {
 		go func() {
