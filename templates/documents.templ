@@ -65,9 +65,9 @@ templ DocumentsContent(deviceID string, documents []models.Document, confirmDele
 							}
 							<button
 								onclick={ deleteDocument(doc.ID, deviceID, confirmDeleteMessage) }
-								class="bg-gray-200 text-gray-600 p-2 rounded-full hover:bg-gray-300 transition-colors"
+								class="bg-gray-200 text-gray-600 w-10 h-10 rounded-full hover:bg-gray-300 transition-colors flex items-center justify-center"
 							>
-								<span class="font-bold">×</span>
+								<span class="font-bold text-lg">×</span>
 							</button>
 						</div>
 					</div>
