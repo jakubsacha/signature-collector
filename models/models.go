@@ -95,17 +95,12 @@ func (ds DBDocumentStore) AddDocument(doc Document) (string, error) {
 	uuid := uuid.NewString()
 
 	query := "INSERT INTO documents (id, document_title, document_content, signer_name, signer_email, device_id, callback_url, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-	result, err := ds.db.Exec(query, uuid, doc.DocumentTitle, documentContent, doc.SignerName, doc.SignerEmail, doc.DeviceID, doc.CallbackURL, doc.Status)
+	_, err = ds.db.Exec(query, uuid, doc.DocumentTitle, documentContent, doc.SignerName, doc.SignerEmail, doc.DeviceID, doc.CallbackURL, doc.Status)
 	if err != nil {
 		return "", fmt.Errorf("error inserting document: %v", err)
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return "", fmt.Errorf("error getting last insert id: %v", err)
-	}
-
-	return fmt.Sprintf("%d", id), nil
+	return uuid, nil
 }
 
 // ListDocuments lists all pending documents for a specific device
