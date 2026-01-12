@@ -37,7 +37,7 @@ templ SignaturePage(doc models.Document, requestID string) {
                     }
                     if section.Type == "text" {
                         <div class="mb-2 py-2 whitespace-pre-wrap">
-                            <p>{ section.Content }</p>
+                            <p>@templ.Raw(section.Content)</p>
                         </div>
                     } else if section.Type == "consent" {
                         <div class="mb-4">
@@ -72,7 +72,7 @@ templ SignaturePage(doc models.Document, requestID string) {
                                 if section.ConsentMandatory != nil && *section.ConsentMandatory {
                                     <span class="text-red-500 font-bold">*</span>
                                 }
-                                { section.Content }
+                                @templ.Raw(section.Content)
                                 </span>
                             </label>
                         </div>
