@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/jakubsacha/signature-collector/logging"
 	"github.com/jakubsacha/signature-collector/models"
 	"github.com/jakubsacha/signature-collector/templates"
 )
@@ -33,11 +33,12 @@ func NewSignatureHandler(store models.DocumentStore) *SignatureHandler {
 func (h *SignatureHandler) ShowSignaturePage(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	requestID := vars["request_id"]
+	logger := logging.WithField("request_id", requestID)
 
 	// Get document from store
 	status, _, err := h.store.GetSignatureStatus(requestID)
 	if err != nil {
-		log.Printf("Error getting document: %v", err)
+		logger.WithField("error", err.Error()).Error("Error getting document")
 		http.Error(w, "Document not found", http.StatusNotFound)
 		return
 	}
@@ -51,7 +52,7 @@ func (h *SignatureHandler) ShowSignaturePage(w http.ResponseWriter, r *http.Requ
 	// Get document details
 	doc, err := h.store.GetDocument(requestID)
 	if err != nil {
-		log.Printf("Error getting document details: %v", err)
+		logger.WithField("error", err.Error()).Error("Error getting document details")
 		http.Error(w, "Error getting document details", http.StatusInternalServerError)
 		return
 	}
@@ -65,6 +66,7 @@ func (h *SignatureHandler) ShowSignaturePage(w http.ResponseWriter, r *http.Requ
 func (h *SignatureHandler) ProcessSignature(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	requestID := vars["request_id"]
+	logger := logging.WithField("request_id", requestID)
 
 	var req SignatureRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -75,7 +77,7 @@ func (h *SignatureHandler) ProcessSignature(w http.ResponseWriter, r *http.Reque
 	// Get document to verify consents
 	doc, err := h.store.GetDocument(requestID)
 	if err != nil {
-		log.Printf("Error getting document: %v", err)
+		logger.WithField("error", err.Error()).Error("Error getting document")
 		http.Error(w, "Document not found", http.StatusNotFound)
 		return
 	}
@@ -103,21 +105,21 @@ func (h *SignatureHandler) ProcessSignature(w http.ResponseWriter, r *http.Reque
 
 	// Store signature data and update document status
 	if err := h.store.UpdateDocumentSignature(requestID, req.SignatureData); err != nil {
-		log.Printf("Error storing signature: %v", err)
+		logger.WithField("error", err.Error()).Error("Error storing signature")
 		http.Error(w, "Error storing signature", http.StatusInternalServerError)
 		return
 	}
 
 	// Update document status
 	if err := h.store.UpdateDocumentStatus(requestID, "completed"); err != nil {
-		log.Printf("Error updating document status: %v", err)
+		logger.WithField("error", err.Error()).Error("Error updating document status")
 		http.Error(w, "Error updating document status", http.StatusInternalServerError)
 		return
 	}
 
 	// Store consents
 	if err := h.store.StoreConsents(requestID, req.Consents); err != nil {
-		log.Printf("Error storing consents: %v", err)
+		logger.WithField("error", err.Error()).Error("Error storing consents")
 		http.Error(w, "Error storing consents", http.StatusInternalServerError)
 		return
 	}
@@ -125,15 +127,19 @@ func (h *SignatureHandler) ProcessSignature(w http.ResponseWriter, r *http.Reque
 	// Send callback if configured
 	if doc.CallbackURL != "" {
 		go func() {
-			log.Printf("Sending callback for document %s", requestID)
+			callbackLogger := logging.WithFields(map[string]interface{}{
+				"request_id":   requestID,
+				"callback_url": doc.CallbackURL,
+			})
+			callbackLogger.Info("Initiating callback goroutine")
 			var callbackSender = models.NewCallbackSender()
 			if err := callbackSender.SendCallback(doc, req.SignatureData, req.Consents); err != nil {
 				// Log the error but don't fail the request
-				log.Printf("Error sending callback for document %s: %v", requestID, err)
+				callbackLogger.WithField("error", err.Error()).Error("Callback failed")
 			}
 		}()
 	} else {
-		log.Printf("No callback URL configured for document %s", requestID)
+		logger.Info("No callback URL configured")
 	}
 
 	response := SignatureResponse{

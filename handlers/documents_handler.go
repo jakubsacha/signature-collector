@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"github.com/jakubsacha/signature-collector/i18n"
+	"github.com/jakubsacha/signature-collector/logging"
 	"github.com/jakubsacha/signature-collector/models"
 	"github.com/jakubsacha/signature-collector/templates"
 )
@@ -27,14 +27,15 @@ func (h *DocumentsHandler) ListDocuments(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	log.Printf("Fetching documents for device: %s", deviceID)
+	logger := logging.WithField("device_id", deviceID)
+	logger.Info("Fetching documents for device")
 	documents, err := h.store.ListDocuments(deviceID)
 	if err != nil {
-		log.Printf("Failed to fetch documents: %v", err)
+		logger.WithField("error", err.Error()).Error("Failed to fetch documents")
 		http.Error(w, "Failed to fetch documents", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Found %d pending documents for device %s", len(documents), deviceID)
+	logger.WithField("count", len(documents)).Info("Found pending documents for device")
 
 	// Check if this is a content-only request
 	if r.URL.Path == "/documents/"+deviceID+"/content" {

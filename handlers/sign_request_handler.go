@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
+	"github.com/jakubsacha/signature-collector/logging"
 	"github.com/jakubsacha/signature-collector/models"
 )
 
@@ -56,7 +56,10 @@ func SignRequestHandler(w http.ResponseWriter, r *http.Request, store models.Doc
 
 	requestID, err := store.AddDocument(doc)
 	if err != nil {
-		log.Printf("Error adding document: %v", err)
+		logging.WithFields(map[string]interface{}{
+			"error":     err.Error(),
+			"device_id": req.DeviceID,
+		}).Error("Error adding document")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}

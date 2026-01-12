@@ -1,52 +1,52 @@
 package main
 
 import (
-	"log"
 	"net/http"
 	"os"
 
 	"github.com/gorilla/mux"
 	"github.com/jakubsacha/signature-collector/handlers"
 	"github.com/jakubsacha/signature-collector/i18n"
+	"github.com/jakubsacha/signature-collector/logging"
 	"github.com/jakubsacha/signature-collector/models"
 	"github.com/joho/godotenv"
 )
 
 func main() {
 	// Set up logging
-	log.Println("Starting application...")
+	logging.Info("Starting application...")
 
 	// Load .env file
-	log.Println("Loading .env file...")
+	logging.Info("Loading .env file...")
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("Didn't load .env file")
+		logging.Info("Didn't load .env file")
 	}
-	log.Println(".env file loaded successfully")
+	logging.Info(".env file loaded successfully")
 
 	// check if API_USER and API_PASS are set
 	if os.Getenv("BASEAUTH_USER") == "" || os.Getenv("BASEAUTH_PASS") == "" {
-		log.Fatalf("BASEAUTH_USER and BASEAUTH_PASS must be set")
+		logging.Fatal("BASEAUTH_USER and BASEAUTH_PASS must be set")
 	}
 
 	// check if API_TOKEN is set
 	if os.Getenv("API_TOKEN") == "" {
-		log.Fatalf("API_TOKEN must be set")
+		logging.Fatal("API_TOKEN must be set")
 	}
 
 	// Initialize i18n
-	log.Println("Initializing i18n...")
+	logging.Info("Initializing i18n...")
 	err = i18n.Init(os.Getenv("LANGUAGE"))
 	if err != nil {
-		log.Fatalf("Error initializing i18n: %v", err)
+		logging.WithField("error", err.Error()).Fatal("Error initializing i18n")
 	}
-	log.Println("i18n initialized successfully")
+	logging.Info("i18n initialized successfully")
 
 	// Initialize the database
-	log.Println("Setting up database configuration...")
+	logging.Info("Setting up database configuration...")
 	var config models.DBConfig
 	if dbHost := os.Getenv("DB_HOST"); dbHost != "" {
-		log.Println("Using MySQL database configuration")
+		logging.WithField("driver", "mysql").Info("Using MySQL database configuration")
 		// Use MySQL if DB_HOST is set
 		config = models.DBConfig{
 			Driver:   "mysql",
@@ -57,24 +57,24 @@ func main() {
 		}
 	} else {
 		// Default to SQLite
-		log.Println("Using SQLite database configuration")
+		logging.WithField("driver", "sqlite3").Info("Using SQLite database configuration")
 		config = models.DBConfig{
 			Driver: "sqlite3",
 			Name:   "local.db",
 		}
 	}
 
-	log.Println("Initializing database connection...")
+	logging.Info("Initializing database connection...")
 	db, err := models.InitDB(config)
 	if err != nil {
-		log.Fatalf("Error initializing database: %v", err)
+		logging.WithField("error", err.Error()).Fatal("Error initializing database")
 	}
-	log.Println("Database initialized successfully")
+	logging.Info("Database initialized successfully")
 
-	log.Println("Setting up document store...")
+	logging.Info("Setting up document store...")
 	store := models.NewDBDocumentStore(db)
 
-	log.Println("Configuring router...")
+	logging.Info("Configuring router...")
 	router := mux.NewRouter()
 
 	// API routes with token authentication
@@ -112,10 +112,10 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("Attempting to start server on port %s...\n", port)
+	logging.WithField("port", port).Info("Attempting to start server")
 	err = http.ListenAndServe(":"+port, router)
 	if err != nil {
-		log.Fatalf("Error starting server: %v", err)
+		logging.WithField("error", err.Error()).Fatal("Error starting server")
 	}
 }
 

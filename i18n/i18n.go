@@ -3,8 +3,8 @@ package i18n
 import (
 	"embed"
 	"encoding/json"
-	"log"
 
+	"github.com/jakubsacha/signature-collector/logging"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/text/language"
 )
@@ -39,7 +39,7 @@ func Init(lang string) error {
 
 	// Set the localizer with fallback languages
 	localizer = i18n.NewLocalizer(bundle, lang, "en")
-	log.Printf("Initialized i18n with language: %s", lang)
+	logging.WithField("language", lang).Info("Initialized i18n")
 	return nil
 }
 
@@ -53,7 +53,10 @@ func T(messageID string, templateData map[string]interface{}) string {
 		TemplateData: templateData,
 	})
 	if err != nil {
-		log.Printf("Localization error for message ID '%s': %v", messageID, err)
+		logging.WithFields(map[string]interface{}{
+			"message_id": messageID,
+			"error":      err.Error(),
+		}).Warn("Localization error")
 		return messageID
 	}
 	return msg

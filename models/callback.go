@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
+	"net/url"
 	"time"
+
+	"github.com/jakubsacha/signature-collector/logging"
 )
 
 // CallbackPayload represents the data sent to the callback URL
@@ -63,20 +65,33 @@ func (s *CallbackSender) WithRetryConfig(cfg retryConfig) *CallbackSender {
 	return s
 }
 
-// makeCallbackRequest attempts a single callback request
-func (s *CallbackSender) makeCallbackRequest(url string, jsonData []byte) error {
-	resp, err := s.client.Post(url, "application/json", bytes.NewBuffer(jsonData))
+// extractHost extracts the host from a URL string for logging purposes
+func extractHost(callbackURL string) string {
+	parsedURL, err := url.Parse(callbackURL)
 	if err != nil {
-		return fmt.Errorf("error sending callback: %v", err)
+		return "unknown (parse error)"
+	}
+	return parsedURL.Host
+}
+
+// makeCallbackRequest attempts a single callback request
+func (s *CallbackSender) makeCallbackRequest(callbackURL string, jsonData []byte) error {
+	host := extractHost(callbackURL)
+	resp, err := s.client.Post(callbackURL, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("network error: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		log.Printf("Callback request successful with status: %d", resp.StatusCode)
+		logging.WithFields(map[string]interface{}{
+			"host":        host,
+			"status_code": resp.StatusCode,
+		}).Info("Callback request successful")
 		return nil
 	}
 
-	return fmt.Errorf("callback request failed with status: %d", resp.StatusCode)
+	return fmt.Errorf("HTTP %d", resp.StatusCode)
 }
 
 // calculateBackoff determines the delay for the next retry attempt
@@ -94,6 +109,14 @@ func (s *CallbackSender) SendCallback(doc Document, signatureData string, consen
 		return fmt.Errorf("no callback URL provided")
 	}
 
+	host := extractHost(doc.CallbackURL)
+	logger := logging.WithFields(map[string]interface{}{
+		"document_id":  doc.ID,
+		"host":         host,
+		"callback_url": doc.CallbackURL,
+	})
+	logger.Info("Initiating callback")
+
 	payload := CallbackPayload{
 		RequestID:     doc.ID,
 		Status:        doc.Status,
@@ -106,24 +129,39 @@ func (s *CallbackSender) SendCallback(doc Document, signatureData string, consen
 
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
+		logger.WithField("error", err.Error()).Error("Failed to marshal callback payload")
 		return fmt.Errorf("error marshaling callback payload: %v", err)
 	}
 
 	var lastErr error
 	for attempt := 0; attempt < s.cfg.maxRetries; attempt++ {
-		log.Printf("Sending callback for document %s, attempt %d", doc.ID, attempt)
+		attemptLogger := logger.WithFields(map[string]interface{}{
+			"attempt":     attempt + 1,
+			"max_retries": s.cfg.maxRetries,
+		})
+		attemptLogger.Info("Sending callback attempt")
+
 		err := s.makeCallbackRequest(doc.CallbackURL, jsonData)
 		if err == nil {
+			attemptLogger.Info("Callback completed successfully")
 			return nil
 		}
 
-		var backoff = calculateBackoff(attempt, s.cfg)
-		log.Printf("Callback request failed with error: %v, waiting %s before next attempt", err, backoff)
+		backoff := calculateBackoff(attempt, s.cfg)
+		attemptLogger.WithFields(map[string]interface{}{
+			"error":         err.Error(),
+			"next_retry_in": backoff.String(),
+		}).Warn("Callback attempt failed")
 		lastErr = err
 
 		// Wait before next retry
 		s.sleepFunc(backoff)
 	}
 
-	return fmt.Errorf("failed after %d retries. Last error: %v", s.cfg.maxRetries, lastErr)
+	logger.WithFields(map[string]interface{}{
+		"total_attempts": s.cfg.maxRetries,
+		"last_error":     lastErr.Error(),
+	}).Error("Callback failed after all retries")
+
+	return fmt.Errorf("callback to host %s failed after %d retries: %v", host, s.cfg.maxRetries, lastErr)
 }
