@@ -116,6 +116,7 @@ func (h *SignatureHandler) ProcessSignature(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "Error updating document status", http.StatusInternalServerError)
 		return
 	}
+	doc.Status = "completed" // Update local copy for callback
 
 	// Store consents
 	if err := h.store.StoreConsents(requestID, req.Consents); err != nil {
