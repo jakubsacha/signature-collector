@@ -1,6 +1,8 @@
 package main
 
 import (
+	"embed"
+	"io/fs"
 	"net/http"
 	"os"
 
@@ -11,6 +13,12 @@ import (
 	"github.com/jakubsacha/signature-collector/models"
 	"github.com/joho/godotenv"
 )
+
+// staticFiles holds the PWA assets (manifest, service worker, icons) so they
+// ship inside the binary and the Docker image needs no extra COPY.
+//
+//go:embed static
+var staticFiles embed.FS
 
 func main() {
 	// Set up logging
@@ -76,6 +84,19 @@ func main() {
 
 	logging.Info("Configuring router...")
 	router := mux.NewRouter()
+
+	// PWA assets are served without authentication on purpose: Chrome fetches
+	// the manifest and its icons with credentials omitted, so a 401 here would
+	// make it drop the manifest and the kiosk shortcut would lose fullscreen.
+	staticRoot, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		logging.WithField("error", err.Error()).Fatal("Error preparing static files")
+	}
+	staticServer := http.FileServer(http.FS(staticRoot))
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", staticServer)).Methods(http.MethodGet)
+	// The service worker must be served from the root to get "/" as its scope.
+	router.Handle("/sw.js", staticServer).Methods(http.MethodGet)
+	router.Handle("/manifest.json", staticServer).Methods(http.MethodGet)
 
 	// API routes with token authentication
 	router.HandleFunc("/api/documents/signatures/request", tokenAuth(func(w http.ResponseWriter, r *http.Request) {

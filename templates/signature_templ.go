@@ -230,7 +230,7 @@ func SignaturePage(doc models.Document, requestID string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</span></div><div class=\"border-2 border-gray-300 rounded-lg\"><canvas id=\"signatureCanvas\" class=\"w-full h-64 rounded cursor-crosshair\"></canvas></div><div class=\"mt-4 flex justify-end space-x-4\"><button id=\"clearButton\" class=\"bg-[#F6F0E4] text-black px-4 py-2 rounded-full hover:bg-[#F6F0E4] transition-colors\">")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</span></div><div class=\"border-2 border-gray-300 rounded-lg\"><canvas id=\"signatureCanvas\" class=\"w-full h-64 rounded cursor-crosshair touch-none\"></canvas></div><div class=\"mt-4 flex justify-end space-x-4\"><button id=\"clearButton\" class=\"bg-[#F6F0E4] text-black px-4 py-2 rounded-full hover:bg-[#F6F0E4] transition-colors\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

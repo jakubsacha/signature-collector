@@ -35,6 +35,32 @@ make run-dev
 
 The service will be available at `http://localhost:8080`
 
+## Kiosk Mode (PWA)
+
+The tablet UI installs as a PWA so the home-screen shortcut opens fullscreen,
+with no address bar and no status bar.
+
+Served without authentication (Chrome fetches these with credentials omitted,
+and a 401 makes it drop the manifest):
+
+- `/manifest.json` — `display: fullscreen`, landscape, brand colours
+- `/sw.js` — minimal service worker; caches nothing, exists only because Chrome
+  requires a registered worker with a `fetch` handler before it treats the app
+  as installable
+- `/static/icon-*.png` — 192px, 512px and a maskable 512px icon, plus
+  `/static/icon.svg`; all built from the Pupilmed mark in
+  `/static/logo.svg` (source: https://pupilmed.pl/logo.svg)
+
+All of it is embedded in the binary via `go:embed`, so no extra deployment step.
+
+Setting up a tablet:
+
+1. Open the app in Chrome and sign in with the basic-auth credentials.
+2. Add it to the home screen. If a shortcut already exists, **remove it and add
+   it again** — Chrome does not update the display mode of existing shortcuts.
+3. Launch from the shortcut and check that a signature stroke on the canvas is
+   not swallowed as a scroll gesture.
+
 ## External API Integration Flow
 
 ```mermaid

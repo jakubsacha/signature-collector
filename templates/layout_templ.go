@@ -44,7 +44,7 @@ func Layout(content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover\"><title>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -57,7 +57,7 @@ func Layout(content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</title><script src=\"https://unpkg.com/htmx.org@1.9.9\"></script><script src=\"https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js\"></script><script src=\"https://cdn.tailwindcss.com\"></script></head><body class=\"bg-[#F6F0E4]\">")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</title><link rel=\"manifest\" href=\"/manifest.json\"><meta name=\"theme-color\" content=\"#F6F0E4\"><meta name=\"mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-status-bar-style\" content=\"default\"><link rel=\"icon\" href=\"/static/icon.svg\" type=\"image/svg+xml\"><link rel=\"icon\" href=\"/static/icon-192.png\" sizes=\"192x192\" type=\"image/png\"><link rel=\"apple-touch-icon\" href=\"/static/icon-192.png\"><script src=\"https://unpkg.com/htmx.org@1.9.9\"></script><script src=\"https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js\"></script><script src=\"https://cdn.tailwindcss.com\"></script></head><body class=\"bg-[#F6F0E4] overscroll-none\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -65,7 +65,7 @@ func Layout(content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</body></html>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<script>\n\t\t\t\t// Registering a service worker is what makes Chrome treat the app as\n\t\t\t\t// installable, which in turn lets the home-screen shortcut honour\n\t\t\t\t// \"display\": \"fullscreen\" from the manifest.\n\t\t\t\tif ('serviceWorker' in navigator) {\n\t\t\t\t\twindow.addEventListener('load', () => {\n\t\t\t\t\t\tnavigator.serviceWorker.register('/sw.js').catch((error) => {\n\t\t\t\t\t\t\tconsole.error('Service worker registration failed', error);\n\t\t\t\t\t\t});\n\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t</script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
