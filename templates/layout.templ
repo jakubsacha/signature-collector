@@ -34,6 +34,29 @@ templ Layout(content templ.Component) {
 						});
 					});
 				}
+
+				// The manifest only binds orientation for the installed app, so lock it
+				// again at runtime to keep a running session upright. Locking is allowed
+				// in fullscreen/standalone only; in a plain browser tab it rejects, and
+				// there is nothing to enforce there, so the rejection is ignored.
+				function lockPortrait() {
+					try {
+						const lock = screen.orientation && screen.orientation.lock;
+						if (lock) {
+							screen.orientation.lock('portrait-primary').catch(() => {});
+						}
+					} catch (error) {
+						// Older browsers throw instead of rejecting.
+					}
+				}
+				lockPortrait();
+				// A relock is needed after the app is brought back to the foreground,
+				// which drops the lock on some Android builds.
+				document.addEventListener('visibilitychange', () => {
+					if (!document.hidden) {
+						lockPortrait();
+					}
+				});
 			</script>
 		</body>
 	</html>

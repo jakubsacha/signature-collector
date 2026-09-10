@@ -43,7 +43,8 @@ with no address bar and no status bar.
 Served without authentication (Chrome fetches these with credentials omitted,
 and a 401 makes it drop the manifest):
 
-- `/manifest.json` — `display: fullscreen`, landscape, brand colours
+- `/manifest.json` — `display: fullscreen`, `portrait-primary` (no 180° flip),
+  brand colours
 - `/sw.js` — minimal service worker; caches nothing, exists only because Chrome
   requires a registered worker with a `fetch` handler before it treats the app
   as installable
@@ -60,6 +61,12 @@ Setting up a tablet:
    it again** — Chrome does not update the display mode of existing shortcuts.
 3. Launch from the shortcut and check that a signature stroke on the canvas is
    not swallowed as a scroll gesture.
+
+Orientation is pinned twice: `portrait-primary` in the manifest (honoured by
+Chrome when launched from the shortcut) and a `screen.orientation.lock()` call
+in the layout, re-applied when the app returns to the foreground. In a plain
+browser tab the lock rejects and is ignored — there is nothing to enforce
+outside fullscreen/standalone. iOS Safari honours neither.
 
 ## External API Integration Flow
 
